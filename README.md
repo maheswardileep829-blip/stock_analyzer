@@ -61,23 +61,7 @@ Results are automatically saved to `stock_analysis_results.csv`
 Built while learning Python, pandas, and financial analysis for future economic research projects.
 ```
 
----
 
-## **UPLOAD THESE FILES:**
-
-1. `stock_analyzer.py` (your code)
-2. `README.md` (copy the text above)
-3. `.gitignore` with:
-```
-*.csv
-__pycache__/
-*.pyc
-```
-
----
-
-## **GITHUB COMMIT MESSAGE:**
-```
 Add Stock Market Analyzer - Project #10
 
 - Multi-stock analysis tool with real-time data
