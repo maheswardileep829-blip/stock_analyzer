@@ -59,7 +59,7 @@ Results are automatically saved to `stock_analysis_results.csv`
 **Project #10** - February 2026
 
 Built while learning Python, pandas, and financial analysis for future economic research projects.
-```
+
 
 
 Add Stock Market Analyzer - Project #10
