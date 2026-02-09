@@ -1,28 +1,41 @@
 import yfinance as yf
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def safe_download(ticker: str, period: str = "1y") -> pd.DataFrame:
-    """
-    Downloads OHLCV data for a ticker.
-    Returns a DataFrame with columns: Open, High, Low, Close, Adj Close, Volume (when available).
-    Raises ValueError if no data is returned.
-    """
     df = yf.download(tickers=ticker, period=period, progress=False)
 
-    # If yfinance returns columns with a MultiIndex (rare for single ticker), flatten them
+    # Flatten columns if yfinance returns MultiIndex
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
     if df is None or df.empty:
         raise ValueError("No data returned (invalid ticker or no recent trading data).")
 
-    # Some tickers return missing Close values at the end; drop rows missing Close
     df = df.dropna(subset=["Close"])
     if df.empty:
         raise ValueError("Data returned but missing Close prices.")
 
     return df
+
+
+def plot_vs_spy(ticker: str, period: str = "1y") -> None:
+    stock = safe_download(ticker, period=period)
+    spy = safe_download("SPY", period=period)
+
+    stock_norm = stock["Close"] / stock["Close"].iloc[0] * 100
+    spy_norm = spy["Close"] / spy["Close"].iloc[0] * 100
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(stock_norm, label=ticker)
+    plt.plot(spy_norm, label="S&P 500 (SPY)")
+    plt.title(f"{ticker} vs S&P 500 (1-Year Performance)")
+    plt.xlabel("Date")
+    plt.ylabel("Normalized Price (Start = 100)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 
 def analyze_ticker(ticker: str) -> dict:
@@ -34,14 +47,12 @@ def analyze_ticker(ticker: str) -> dict:
     lowest_price = float(df["Low"].min())
 
     return_rate = ((latest_price - start_price) / start_price) * 100
-
     daily_returns = df["Close"].pct_change()
-    volatility = float(daily_returns.std() * 100)  # percent
+    volatility = float(daily_returns.std() * 100)
 
     ma_50 = float(df["Close"].rolling(window=50).mean().iloc[-1]) if len(df) >= 50 else float("nan")
     ma_200 = float(df["Close"].rolling(window=200).mean().iloc[-1]) if len(df) >= 200 else float("nan")
 
-    # Trend label (no emojis in CSV—keep it clean)
     if pd.notna(ma_50) and pd.notna(ma_200):
         if latest_price > ma_50 and ma_50 > ma_200:
             trend = "BULLISH"
@@ -61,7 +72,6 @@ def analyze_ticker(ticker: str) -> dict:
 
     price_range = highest_price - lowest_price
 
-    # Print per-ticker report
     print(f"\n{'='*60}")
     print(f"ANALYZING: {ticker}")
     print("=" * 60)
@@ -95,50 +105,21 @@ def main():
     print("Stock Analyzer")
     print("=" * 60)
 
-    import matplotlib.pyplot as plt
-
-def plot_vs_spy(ticker):
-    # Download stock data
-    stock = yf.download(ticker, period="1y", progress=False)
-    spy = yf.download("SPY", period="1y", progress=False)
-
-    # Flatten columns if needed
-    if isinstance(stock.columns, pd.MultiIndex):
-        stock.columns = stock.columns.get_level_values(0)
-    if isinstance(spy.columns, pd.MultiIndex):
-        spy.columns = spy.columns.get_level_values(0)
-
-    # Normalize prices
-    stock_norm = stock["Close"] / stock["Close"].iloc[0] * 100
-    spy_norm = spy["Close"] / spy["Close"].iloc[0] * 100
-
-    # Plot
-    plt.figure(figsize=(10, 5))
-    plt.plot(stock_norm, label=ticker)
-    plt.plot(spy_norm, label="S&P 500 (SPY)")
-    plt.title(f"{ticker} vs S&P 500 (1-Year Performance)")
-    plt.xlabel("Date")
-    plt.ylabel("Normalized Price (Start = 100)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
     raw = input("Enter stock tickers (separated by spaces): ").strip()
     if not raw:
         print("No tickers entered. Exiting.")
         return
 
-    tickers = list(dict.fromkeys(raw.upper().split()))  # unique, preserve order
+    tickers = list(dict.fromkeys(raw.upper().split()))
     results = []
     failed = []
 
     for ticker in tickers:
         try:
             results.append(analyze_ticker(ticker))
+            plot_vs_spy(ticker)  # <-- plot vs SPY after analyzing
         except Exception as e:
             failed.append((ticker, str(e)))
-            print(f"\n{'='*60}\nANALYZING: {ticker}\n" + "=" * 60)
             print(f"❌ Skipped {ticker}: {e}")
 
     if not results:
@@ -147,14 +128,12 @@ def plot_vs_spy(ticker):
 
     df = pd.DataFrame(results)
 
-    # Pretty console table
     print("\n" + "=" * 60)
     print("COMPARISON TABLE")
     print("=" * 60)
     display_cols = ["Ticker", "Latest Price", "1Y Return %", "Volatility %", "Price Range", "Trend"]
     print(df[display_cols].to_string(index=False))
 
-    # Best/worst based on return
     best_stock = df.loc[df["1Y Return %"].idxmax()]
     worst_stock = df.loc[df["1Y Return %"].idxmin()]
 
@@ -163,12 +142,10 @@ def plot_vs_spy(ticker):
     print(f"📉 WORST PERFORMER: {worst_stock['Ticker']} ({worst_stock['1Y Return %']:+.2f}%)")
     print("=" * 60)
 
-    # Save CSV
     filename = "stock_analysis_results.csv"
     df.to_csv(filename, index=False)
     print(f"\n💾 Results saved to: {filename}")
 
-    # Show failures (if any)
     if failed:
         print("\n" + "=" * 60)
         print("TICKERS SKIPPED")
@@ -179,4 +156,3 @@ def plot_vs_spy(ticker):
 
 if __name__ == "__main__":
     main()
-
