@@ -95,6 +95,35 @@ def main():
     print("Stock Analyzer")
     print("=" * 60)
 
+    import matplotlib.pyplot as plt
+
+def plot_vs_spy(ticker):
+    # Download stock data
+    stock = yf.download(ticker, period="1y", progress=False)
+    spy = yf.download("SPY", period="1y", progress=False)
+
+    # Flatten columns if needed
+    if isinstance(stock.columns, pd.MultiIndex):
+        stock.columns = stock.columns.get_level_values(0)
+    if isinstance(spy.columns, pd.MultiIndex):
+        spy.columns = spy.columns.get_level_values(0)
+
+    # Normalize prices
+    stock_norm = stock["Close"] / stock["Close"].iloc[0] * 100
+    spy_norm = spy["Close"] / spy["Close"].iloc[0] * 100
+
+    # Plot
+    plt.figure(figsize=(10, 5))
+    plt.plot(stock_norm, label=ticker)
+    plt.plot(spy_norm, label="S&P 500 (SPY)")
+    plt.title(f"{ticker} vs S&P 500 (1-Year Performance)")
+    plt.xlabel("Date")
+    plt.ylabel("Normalized Price (Start = 100)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
     raw = input("Enter stock tickers (separated by spaces): ").strip()
     if not raw:
         print("No tickers entered. Exiting.")
@@ -150,3 +179,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
