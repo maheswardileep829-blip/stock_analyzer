@@ -20,26 +20,8 @@ def safe_download(ticker: str, period: str = "1y") -> pd.DataFrame:
     return df
 
 
-def plot_vs_spy(ticker: str, period: str = "1y") -> None:
-    stock = safe_download(ticker, period=period)
-    spy = safe_download("SPY", period=period)
-
-    stock_norm = stock["Close"] / stock["Close"].iloc[0] * 100
-    spy_norm = spy["Close"] / spy["Close"].iloc[0] * 100
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(stock_norm, label=ticker)
-    plt.plot(spy_norm, label="S&P 500 (SPY)")
-    plt.title(f"{ticker} vs S&P 500 (1-Year Performance)")
-    plt.xlabel("Date")
-    plt.ylabel("Normalized Price (Start = 100)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
-def analyze_ticker(ticker: str) -> dict:
-    df = safe_download(ticker)
+def analyze_ticker(ticker: str, period: str = "1y") -> dict:
+    df = safe_download(ticker, period=period)
 
     latest_price = float(df["Close"].iloc[-1])
     start_price = float(df["Close"].iloc[0])
@@ -100,6 +82,34 @@ def analyze_ticker(ticker: str) -> dict:
     }
 
 
+def plot_all_vs_spy(tickers: list[str], period: str = "1y") -> None:
+    # Download SPY once
+    spy = safe_download("SPY", period=period)
+    spy_norm = spy["Close"] / spy["Close"].iloc[0] * 100
+
+    plt.figure(figsize=(11, 6))
+    plt.plot(spy_norm.index, spy_norm, label="S&P 500 (SPY)", linewidth=3)
+
+    for ticker in tickers:
+        try:
+            stock = safe_download(ticker, period=period)
+            stock_norm = stock["Close"] / stock["Close"].iloc[0] * 100
+
+            # Align dates with SPY so the plot doesn't get weird
+            combined = pd.concat([spy_norm, stock_norm], axis=1, join="inner").dropna()
+            plt.plot(combined.index, combined.iloc[:, 1], label=ticker)
+
+        except Exception as e:
+            print(f"⚠️ Could not plot {ticker}: {e}")
+
+    plt.title("1-Year Performance vs S&P 500 (Normalized to 100)")
+    plt.xlabel("Date")
+    plt.ylabel("Normalized Price (Start = 100)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
 def main():
     print("=" * 60)
     print("Stock Analyzer")
@@ -117,7 +127,6 @@ def main():
     for ticker in tickers:
         try:
             results.append(analyze_ticker(ticker))
-            plot_vs_spy(ticker)  # <-- plot vs SPY after analyzing
         except Exception as e:
             failed.append((ticker, str(e)))
             print(f"❌ Skipped {ticker}: {e}")
@@ -152,6 +161,9 @@ def main():
         print("=" * 60)
         for t, msg in failed:
             print(f"- {t}: {msg}")
+
+    # ONE CHART at the end 🔥
+    plot_all_vs_spy([r["Ticker"] for r in results])
 
 
 if __name__ == "__main__":
